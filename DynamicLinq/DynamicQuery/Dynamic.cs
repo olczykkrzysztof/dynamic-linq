@@ -1064,9 +1064,12 @@ namespace System.Linq.Dynamic
 				
 				while (token.id == TokenId.Dot)
 				{
+					if (class_type == null)
+						class_type = Type.GetType(full_type_name.ToString(), false);
+					
 					NextToken();
 					ValidateToken(TokenId.Identifier, Res.IdentifierExpected);
-					full_type_name.Append(".");
+					full_type_name.Append(class_type != null ? "+" : ".");
 					full_type_name.Append(GetIdentifier());
 					NextToken();
 				}
