@@ -1,0 +1,16 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="DynamicQuery/Dynamic.cs">
+    <Files>
+      <File FileName="DynamicQuery/Program.cs" Line="23" Column="22" />
+      <File FileName="DynamicQuery/Dynamic.cs" Line="39" Column="14" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore>
+      <Breakpoint file="/Users/krizz/Desktop/DynamicQuery/DynamicQuery/Program.cs" line="49" />
+      <Breakpoint file="/Users/krizz/Desktop/DynamicQuery/DynamicQuery/Program.cs" line="30" />
+    </BreakpointStore>
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
