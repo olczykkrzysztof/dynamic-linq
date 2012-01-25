@@ -1,0 +1,2 @@
+The source code available here is licensed on various licenses.
+Search for license.txt file in the respective subdirectory.
