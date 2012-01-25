@@ -16,14 +16,6 @@ using NorthwindMapping;
 
 namespace Dynamic
 {
-#if !SQLDEMO
-	public class valAndDoubled
-	{
-		public int val { get; set; }
-		public int doubled { get; set; }
-	}
-#endif
-	
     public class Program
     {
 #if SQLDEMO
@@ -50,15 +42,21 @@ namespace Dynamic
             Console.ReadLine();
         }
 #else	
+		public class valAndDoubled
+		{
+			public int val { get; set; }
+			public int doubled { get; set; }
+		}
+		
 		static void Main(string[] args)
         {
 			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
-				.Where("val >= 7").Select("new (val, new Dynamic.valAndDoubled(val, (val * 2) as doubled) as cool)");
+				.Where("val >= 7").Select("new (val, new Dynamic.Program.valAndDoubled(val, (val * 2) as doubled) as cool)");
 			
 			var arr = query.OfType<object>().ToArray();
 			
 			IQueryable<valAndDoubled> q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select("new Dynamic.valAndDoubled(it as val, it * 2 as doubled)") as IQueryable<valAndDoubled>;
+				.Select("new Dynamic.Program.valAndDoubled(it as val, it * 2 as doubled)") as IQueryable<valAndDoubled>;
 			
 			var arr2 = q2.ToArray();
 			
