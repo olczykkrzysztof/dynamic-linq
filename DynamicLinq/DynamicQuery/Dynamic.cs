@@ -1051,9 +1051,23 @@ namespace System.Linq.Dynamic
 		
 		Type LoadType(string type_name)
 		{
-			var all_types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes());					
+			var all_types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes());							
+			var matching = all_types.Where(t => t.FullName == type_name 
+			                 || t.Namespace != null && t.FullName.Substring(t.Namespace.Length + 1) == type_name);
+			var full_match = matching.SingleOrDefault(t => t.FullName == type_name);
 			
-			return all_types.SingleOrDefault(t => t.FullName == type_name);
+			if (full_match != null) 
+			{
+				return full_match; // found full match, together with namespace
+			}
+			else try 
+			{
+				return matching.Single(); // found unambigous match with inferred namespace
+			}
+			catch (InvalidOperationException)
+			{
+				return null; // type not found or ambigous when attempting to infer namespace
+			}
 		}
 
         Expression ParseNew() {
