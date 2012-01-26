@@ -1048,6 +1048,13 @@ namespace System.Linq.Dynamic
             }
             return Expression.Condition(test, expr1, expr2);
         }
+		
+		Type LoadType(string type_name)
+		{
+			var all_types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes());					
+			
+			return all_types.SingleOrDefault(t => t.FullName == type_name);
+		}
 
         Expression ParseNew() {
             NextToken();
@@ -1065,7 +1072,7 @@ namespace System.Linq.Dynamic
 				while (token.id == TokenId.Dot)
 				{
 					if (class_type == null)
-						class_type = Type.GetType(full_type_name.ToString(), false);
+						class_type = LoadType(full_type_name.ToString());
 					
 					NextToken();
 					ValidateToken(TokenId.Identifier, Res.IdentifierExpected);
@@ -1074,7 +1081,7 @@ namespace System.Linq.Dynamic
 					NextToken();
 				}
 				
-				class_type = Type.GetType(full_type_name.ToString(), false);	
+				class_type = LoadType(full_type_name.ToString());	
 				if (class_type == null)
 					throw ParseError(Res.TypeNotFound, full_type_name.ToString());
 			}
