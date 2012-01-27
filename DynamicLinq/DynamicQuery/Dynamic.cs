@@ -1051,6 +1051,17 @@ namespace System.Linq.Dynamic
 		
 		Type LoadType(string type_name)
 		{
+			object symbol;			
+			if (symbols.TryGetValue(type_name, out symbol))
+			{
+				if (symbol is Type)
+					return symbol as Type;
+				else if (symbol is string)
+					return LoadType(symbol as string);
+				else
+					return null;
+			}
+			
 			var all_types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes());							
 			var matching = all_types.Where(t => t.FullName == type_name 
 			                 || t.Namespace != null && t.FullName.Substring(t.Namespace.Length + 1) == type_name);
@@ -1079,7 +1090,7 @@ namespace System.Linq.Dynamic
 			if (token.id == TokenId.Identifier)
 			{
 				anonymous = false;
-				StringBuilder full_type_name = new StringBuilder(GetIdentifier());
+				StringBuilder full_type_name = new StringBuilder(token.text);
 				
 				NextToken();
 				
@@ -1091,7 +1102,7 @@ namespace System.Linq.Dynamic
 					NextToken();
 					ValidateToken(TokenId.Identifier, Res.IdentifierExpected);
 					full_type_name.Append(class_type != null ? "+" : ".");
-					full_type_name.Append(GetIdentifier());
+					full_type_name.Append(token.text);
 					NextToken();
 				}
 				
@@ -2019,7 +2030,7 @@ namespace System.Linq.Dynamic
             if (id.Length > 1 && id[0] == '@') id = id.Substring(1);
             return id;
         }
-
+		
         void ValidateDigit() {
             if (!Char.IsDigit(ch)) throw ParseError(textPos, Res.DigitExpected);
         }
