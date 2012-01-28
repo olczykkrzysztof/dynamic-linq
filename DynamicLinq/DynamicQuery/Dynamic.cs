@@ -899,6 +899,8 @@ namespace System.Linq.Dynamic
                     return ParseRealLiteral();
                 case TokenId.OpenParen:
                     return ParseParenExpression();
+				case TokenId.OpenBracket:
+					return InferIt();
                 default:
                     throw ParseError(Res.ExpressionExpected);
             }
@@ -1016,6 +1018,12 @@ namespace System.Linq.Dynamic
             NextToken();
             return it;
         }
+		
+		Expression InferIt() {
+			if (it == null)
+				throw ParseError(Res.ExpressionExpected);
+			return it;
+		}
 
         Expression ParseIif() {
             int errorPos = token.pos;
