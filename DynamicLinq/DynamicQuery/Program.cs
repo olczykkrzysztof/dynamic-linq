@@ -76,7 +76,7 @@ namespace Dynamic
 			var arr = query.ToArray();
 			
 			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select<valAndDoubled>("new @0(it as val, it * 2 as doubled)", typeof(valAndDoubled));
+				.Select<valAndDoubled>("new @out (it as val, it * 2 as doubled)");
 			
 			var arr2 = q2.ToArray();
 			
