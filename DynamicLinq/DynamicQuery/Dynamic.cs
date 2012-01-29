@@ -22,9 +22,17 @@ This license governs use of the accompanying software. If you use the software, 
  (E) The software is licensed "as-is." You bear the risk of using it. The contributors give no express warranties, guarantees or conditions. You may have additional consumer rights under your local laws which this license cannot change. To the extent permitted under your local laws, the contributors exclude the implied warranties of merchantability, fitness for a particular purpose and non-infringement.
 */
 
+// DynamicLinq 2 
+// (based on Dynamic.cs sample by Microsoft Corporation)
+//
 //Copyright (C) Microsoft Corporation.  All rights reserved.
-
-// Specification of classes in new clause - Copyright (c) 2012 Krzysztof Olczyk.
+//Copyright (C) 2012 Krzysztof Olczyk.  All rights reserved. 
+// 
+// Added by Krizz <olczyk(dot)krzysztof(at)gmail(dot)com>:
+// * "new Namespace.Type(expr as property_name)" grammar
+// * "new @0(expr as property_name)" with Type given as placeholder grammar
+// * Select<OutputType>("....") which returns IQueryable<OutputType> and makes sure the result of select is actually assignable to OutputType
+// * inferred "it" for indexers - "[0] > 10" grammar (equivalent to "it[0] > 10") 
 
 using System;
 using System.Collections.Generic;
