@@ -65,12 +65,12 @@ namespace Dynamic
 		static void Main(string[] args)
         {
 			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
-				.Where("val >= 7").Select("new (val, new Dynamic.Program.valAndDoubled(val, (val * 2) as doubled) as cool)");
+				.Where("val >= 7").Select<object>("new (val, new Dynamic.Program.valAndDoubled(val, (val * 2) as doubled) as cool)");
 			
-			var arr = query.OfType<object>().ToArray();
+			var arr = query.ToArray();
 			
-			IQueryable<valAndDoubled> q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select("new @0(it as val, it * 2 as doubled)", typeof(valAndDoubled)) as IQueryable<valAndDoubled>;
+			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
+				.Select<valAndDoubled>("new @0(it as val, it * 2 as doubled)", typeof(valAndDoubled));
 			
 			var arr2 = q2.ToArray();
 			
