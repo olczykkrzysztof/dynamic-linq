@@ -48,6 +48,20 @@ namespace Dynamic
 			public int doubled { get; set; }
 		}
 		
+		public class indexed 
+		{
+			public object this[int index] 
+			{ 
+				get 
+				{
+					if (index == 1)
+						return "foo";
+					else
+						return 10;
+				}
+			}
+		}
+		
 		static void Main(string[] args)
         {
 			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
@@ -59,6 +73,9 @@ namespace Dynamic
 				.Select("new @0(it as val, it * 2 as doubled)", typeof(valAndDoubled)) as IQueryable<valAndDoubled>;
 			
 			var arr2 = q2.ToArray();
+			
+			var q3 = (new indexed[] { new indexed (), new indexed () }).AsQueryable().Where("Int32([0]) == 10");
+			var arr3 = q3.ToArray();
 			
             Console.WriteLine(query);
 			Console.WriteLine(q2);
