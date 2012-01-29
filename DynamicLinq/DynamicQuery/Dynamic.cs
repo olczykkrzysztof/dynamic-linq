@@ -54,16 +54,24 @@ namespace System.Linq.Dynamic
                     source.Expression, Expression.Quote(lambda)));
         }
 
-        public static IQueryable Select(this IQueryable source, string selector, params object[] values) {
+        private static IQueryable Select(Type type, IQueryable source, string selector, object[] values) {
             if (source == null) throw new ArgumentNullException("source");
             if (selector == null) throw new ArgumentNullException("selector");
-            LambdaExpression lambda = DynamicExpression.ParseLambda(source.ElementType, null, selector, values);
+            LambdaExpression lambda = DynamicExpression.ParseLambda(source.ElementType, type, selector, values);
             return source.Provider.CreateQuery(
                 Expression.Call(
                     typeof(Queryable), "Select",
                     new Type[] { source.ElementType, lambda.Body.Type },
                     source.Expression, Expression.Quote(lambda)));
         }
+		
+		public static IQueryable Select(this IQueryable source, string selector, params object[] values) {
+			return Select(null, source, selector, values);
+		}
+		
+		public static IQueryable<T> Select<T>(this IQueryable source, string selector, params object[] values) {
+			return Select(typeof(T), source, selector, values) as IQueryable<T>;
+		}
 
         public static IQueryable<T> OrderBy<T>(this IQueryable<T> source, string ordering, params object[] values) {
             return (IQueryable<T>)OrderBy((IQueryable)source, ordering, values);
