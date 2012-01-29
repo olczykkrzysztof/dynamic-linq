@@ -683,14 +683,25 @@ namespace System.Linq.Dynamic
                 throw ParseError(Res.DuplicateIdentifier, name);
             symbols.Add(name, value);
         }
+		
+		void RemoveSymbol(string name) {
+			symbols.Remove(name);
+		}
 
         public Expression Parse(Type resultType) {
+			if (resultType != null)
+				AddSymbol("@out", resultType);
+			
             int exprPos = token.pos;
             Expression expr = ParseExpression();
             if (resultType != null)
                 if ((expr = PromoteExpression(expr, resultType, true)) == null)
                     throw ParseError(exprPos, Res.ExpressionTypeMismatch, GetTypeName(resultType));
             ValidateToken(TokenId.End, Res.SyntaxError);
+			
+			if (resultType != null)
+				RemoveSymbol("@out");
+			
             return expr;
         }
 
