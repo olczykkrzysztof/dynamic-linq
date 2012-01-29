@@ -62,6 +62,12 @@ namespace Dynamic
 			}
 		}
 		
+		class Pet
+        {
+        	public string Name { get; set; }
+            public int Age { get; set; }
+        }
+		
 		static void Main(string[] args)
         {
 			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
@@ -76,6 +82,18 @@ namespace Dynamic
 			
 			var q3 = (new indexed[] { new indexed (), new indexed () }).AsQueryable().Where("Int32([0]) == 10");
 			var arr3 = q3.ToArray();
+			
+			List<Pet> pets =
+                    new List<Pet>{ new Pet { Name="Barley", Age=8 },
+                                   new Pet { Name="Boots", Age=4 },
+                                   new Pet { Name="Whiskers", Age=1 },
+                                   new Pet { Name="Daisy", Age=4 } };
+			
+			var pet_query = pets.AsQueryable().Where("Age >= 2").GroupBy<int, string>("Age", "Name");
+			var pet_arr = pet_query.ToArray();
+			
+			var pet_query2 = pets.AsQueryable().GroupBy<int, Pet>("Age");
+			var pet_arr2 = pet_query2.ToArray();
 			
             Console.WriteLine(query);
 			Console.WriteLine(q2);
