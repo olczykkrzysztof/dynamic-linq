@@ -124,19 +124,37 @@ namespace System.Linq.Dynamic
                     source.Expression, Expression.Constant(count)));
         }
 
-        public static IQueryable GroupBy(this IQueryable source, string keySelector, string elementSelector, params object[] values) {
+        private static IQueryable GroupBy(Type type_key, Type type_element, IQueryable source, string keySelector, string elementSelector, object[] values) {
             if (source == null) throw new ArgumentNullException("source");
             if (keySelector == null) throw new ArgumentNullException("keySelector");
             if (elementSelector == null) throw new ArgumentNullException("elementSelector");
-            LambdaExpression keyLambda = DynamicExpression.ParseLambda(source.ElementType, null, keySelector, values);
-            LambdaExpression elementLambda = DynamicExpression.ParseLambda(source.ElementType, null, elementSelector, values);
+            LambdaExpression keyLambda = DynamicExpression.ParseLambda(source.ElementType, type_key, keySelector, values);
+            LambdaExpression elementLambda = DynamicExpression.ParseLambda(source.ElementType, type_element, elementSelector, values);
             return source.Provider.CreateQuery(
                 Expression.Call(
                     typeof(Queryable), "GroupBy",
                     new Type[] { source.ElementType, keyLambda.Body.Type, elementLambda.Body.Type },
                     source.Expression, Expression.Quote(keyLambda), Expression.Quote(elementLambda)));
         }
-
+		
+		public static IQueryable GroupBy(this IQueryable source, string keySelector, string elementSelector, params object[] values) {
+			return GroupBy(null, null, source, keySelector, elementSelector, values);
+		}
+		
+		public static IQueryable<IGrouping<TKey, TElement>> GroupBy<TKey, TElement>(this IQueryable source, string keySelector, string elementSelector, params object[] values) {
+			return GroupBy(typeof(TKey), typeof(TElement), source, keySelector, elementSelector, values) 
+				as IQueryable<IGrouping<TKey, TElement>>;
+		}
+		
+		public static IQueryable GroupBy(this IQueryable source, string keySelector, params object [] values) {
+			return GroupBy(null, null, source, keySelector, "it", values);
+		}
+		
+		public static IQueryable<IGrouping<TKey, TSource>> GroupBy<TKey, TSource>(this IQueryable<TSource> source, string keySelector, params object[] values) {
+			return GroupBy(typeof(TKey), typeof(TSource), source, keySelector, "it", values) 
+				as IQueryable<IGrouping<TKey, TSource>>;
+		}
+		
         public static bool Any(this IQueryable source) {
             if (source == null) throw new ArgumentNullException("source");
             return (bool)source.Provider.Execute(
