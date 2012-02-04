@@ -42,6 +42,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using System.Globalization;
 
 namespace System.Linq.Dynamic
 {
@@ -1003,11 +1004,11 @@ namespace System.Linq.Dynamic
             char last = text[text.Length - 1];
             if (last == 'F' || last == 'f') {
                 float f;
-                if (Single.TryParse(text.Substring(0, text.Length - 1), out f)) value = f;
+                if (Single.TryParse(text.Substring(0, text.Length - 1), NumberStyles.Float, CultureInfo.InvariantCulture, out f)) value = f;
             }
             else {
                 double d;
-                if (Double.TryParse(text, out d)) value = d;
+                if (Double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out d)) value = d;
             }
             if (value == null) throw ParseError(Res.InvalidRealLiteral, text);
             NextToken();
