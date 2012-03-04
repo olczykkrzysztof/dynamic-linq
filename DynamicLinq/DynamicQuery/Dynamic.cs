@@ -1074,7 +1074,7 @@ namespace System.Linq.Dynamic
         Expression ParseIif() {
             int errorPos = token.pos;
             NextToken();
-            Expression[] args = ParseArgumentList();
+            Expression[] args = ParseArgumentList(false);
             if (args.Length != 3)
                 throw ParseError(errorPos, Res.IifRequiresThreeArgs);
             return GenerateConditional(args[0], args[1], args[2], errorPos);
@@ -1200,7 +1200,7 @@ namespace System.Linq.Dynamic
         Expression ParseLambdaInvocation(LambdaExpression lambda) {
             int errorPos = token.pos;
             NextToken();
-            Expression[] args = ParseArgumentList();
+            Expression[] args = ParseArgumentList(true);
             MethodBase method;
             if (FindMethod(lambda.Type, "Invoke", false, args, out method) != 1)
                 throw ParseError(errorPos, Res.ArgsIncompatibleWithLambda);
@@ -1217,7 +1217,7 @@ namespace System.Linq.Dynamic
                 NextToken();
             }
             if (token.id == TokenId.OpenParen) {
-                Expression[] args = ParseArgumentList();
+                Expression[] args = ParseArgumentList(false);
                 MethodBase method;
                 switch (FindBestMethod(type.GetConstructors(), args, out method)) {
                     case 0:
@@ -1266,7 +1266,7 @@ namespace System.Linq.Dynamic
                         return ParseAggregate(instance, elementType, id, errorPos);
                     }
                 }
-                Expression[] args = ParseArgumentList();
+                Expression[] args = ParseArgumentList(false);
                 MethodBase mb;
                 switch (FindMethod(type, id, instance == null, args, out mb)) {
                     case 0:
@@ -1314,7 +1314,7 @@ namespace System.Linq.Dynamic
             ParameterExpression outerIt = it;
             ParameterExpression innerIt = Expression.Parameter(elementType, "");
             it = innerIt;
-            Expression[] args = ParseArgumentList();
+            Expression[] args = ParseArgumentList(true);
             it = outerIt;
             MethodBase signature;
             if (FindMethod(typeof(IEnumerableSignatures), methodName, false, args, out signature) != 1)
@@ -1335,8 +1335,11 @@ namespace System.Linq.Dynamic
             return Expression.Call(typeof(Enumerable), signature.Name, typeArgs, args);
         }
 
-        Expression[] ParseArgumentList() {
-            ValidateToken(TokenId.OpenParen, Res.OpenParenExpected);
+        Expression[] ParseArgumentList(bool optional) {
+			if (!optional)
+            	ValidateToken(TokenId.OpenParen, Res.OpenParenExpected);
+			else if (token.id != TokenId.OpenParen)
+				return new Expression[0];
             NextToken();
             Expression[] args = token.id != TokenId.CloseParen ? ParseArguments() : new Expression[0];
             ValidateToken(TokenId.CloseParen, Res.CloseParenOrCommaExpected);
