@@ -68,6 +68,16 @@ namespace Dynamic
             public int Age { get; set; }
         }
 		
+		class Multiplier
+		{
+			public int Factor {get; set;}
+			
+			public int Multiply(int x)
+			{
+				return x * Factor;
+			}
+		}
+		
 		static void Main(string[] args)
         {
 			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
@@ -77,8 +87,11 @@ namespace Dynamic
 			
 		    Expression< Func<int> > ten = () => 10;
 			
+			var doubler = new Multiplier { Factor = 2 }; 
+			Func<int, int> doubler_func = doubler.Multiply;
+			
 			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select<valAndDoubled>("new @out (it as val, it * @0 as doubled)", ten);
+				.Select<valAndDoubled>("new @out (it as val, @1(it * @0) as doubled)", ten, doubler_func);
 			
 			var arr2 = q2.ToArray();
 			
