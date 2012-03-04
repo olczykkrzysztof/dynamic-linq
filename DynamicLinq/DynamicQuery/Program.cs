@@ -75,8 +75,10 @@ namespace Dynamic
 			
 			var arr = query.ToArray();
 			
+		    Expression< Func<int> > ten = () => 10;
+			
 			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select<valAndDoubled>("new @out (it as val, it * 2 as doubled)");
+				.Select<valAndDoubled>("new @out (it as val, it * @0 as doubled)", ten);
 			
 			var arr2 = q2.ToArray();
 			
