@@ -1045,7 +1045,10 @@ namespace System.Linq.Dynamic
                 externals != null && externals.TryGetValue(token.text, out value)) {
                 Expression expr = value as Expression;
                 if (expr == null) {
-                    expr = Expression.Constant(value);
+					if (value is Delegate)
+						return ParseLambdaInvocation(value as Delegate);
+					else
+                    	expr = Expression.Constant(value);
                 }
                 else {
                     LambdaExpression lambda = expr as LambdaExpression;
@@ -1207,6 +1210,22 @@ namespace System.Linq.Dynamic
             return Expression.Invoke(lambda, args);
         }
 
+		Expression ParseLambdaInvocation(Delegate lambda) {
+			int errorPos = token.pos;
+            NextToken();
+            Expression[] args = ParseArgumentList(true);
+			
+			if (!lambda.Method.GetParameters().Select(p => p.ParameterType)
+			    .SequenceEqual(args.Select(a => a.Type)))
+			    throw ParseError(errorPos, Res.ArgsIncompatibleWithLambda);
+	
+			if (lambda.Target == null)
+				return Expression.Call(lambda.Method, args);
+			
+			var target = Expression.Constant(lambda.Target);
+			return Expression.Call(target, lambda.Method, args);
+		}
+		
         Expression ParseTypeAccess(Type type) {
             int errorPos = token.pos;
             NextToken();
