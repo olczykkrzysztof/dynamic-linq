@@ -91,7 +91,8 @@ namespace Dynamic
 			Func<int, int> doubler_func = doubler.Multiply;
 			
 			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select<valAndDoubled>("new @out (it as val, @1(it * @0) as doubled)", ten, doubler_func);
+				.Select<valAndDoubled>("new @out (eval @2 as val, @1(it * @0) + eval \"1+3\" as doubled)", 
+				                       ten, doubler_func, "it");
 			
 			var arr2 = q2.ToArray();
 			
