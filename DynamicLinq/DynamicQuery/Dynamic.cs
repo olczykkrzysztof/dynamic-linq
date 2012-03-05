@@ -633,6 +633,7 @@ namespace System.Linq.Dynamic
         static readonly string keywordIt = "it";
         static readonly string keywordIif = "iif";
         static readonly string keywordNew = "new";
+		static readonly string keywordEval = "eval";
 
         static Dictionary<string, object> keywords;
 
@@ -1029,19 +1030,11 @@ namespace System.Linq.Dynamic
             NextToken();
             return e;
         }
-
-        Expression ParseIdentifier() {
-            ValidateToken(TokenId.Identifier);
-            object value;
-            if (keywords.TryGetValue(token.text, out value)) {
-                if (value is Type) return ParseTypeAccess((Type)value);
-                if (value == (object)keywordIt) return ParseIt();
-                if (value == (object)keywordIif) return ParseIif();
-                if (value == (object)keywordNew) return ParseNew();
-                NextToken();
-                return (Expression)value;
-            }
-            if (symbols.TryGetValue(token.text, out value) ||
+		
+		Expression ParseSymbolOrExternal() {
+			object value;
+			
+			if (symbols.TryGetValue(token.text, out value) ||
                 externals != null && externals.TryGetValue(token.text, out value)) {
                 Expression expr = value as Expression;
                 if (expr == null) {
@@ -1057,10 +1050,53 @@ namespace System.Linq.Dynamic
                 NextToken();
                 return expr;
             }
+			
+			return null;
+		}
+		
+        Expression ParseIdentifier() {
+            ValidateToken(TokenId.Identifier);
+            object value;
+            if (keywords.TryGetValue(token.text, out value)) {
+                if (value is Type) return ParseTypeAccess((Type)value);
+                if (value == (object)keywordIt) return ParseIt();
+                if (value == (object)keywordIif) return ParseIif();
+                if (value == (object)keywordNew) return ParseNew();
+				if (value == (object)keywordEval) return ParseEval();
+                NextToken();
+                return (Expression)value;
+            }
+            
+			var expr = ParseSymbolOrExternal();
+			if (expr != null)
+				return expr;
+			
             if (it != null) return ParseMemberAccess(null, it);
             throw ParseError(Res.UnknownIdentifier, token.text);
         }
-
+		
+		Expression ParseEval() {
+			NextToken();
+			var expr = (token.id == TokenId.Identifier ? ParseSymbolOrExternal() : ParseStringLiteral())
+				as ConstantExpression;
+			
+			if (expr == null)
+				throw ParseError(Res.SyntaxError);
+			
+			var objs = symbols.Select(t => t.Value as object).Concat(new object [] { externals }).ToArray();
+			
+			if (it == null)
+			{
+				return DynamicExpression.Parse(null, expr.Value as string, objs);
+			}
+			else
+			{
+				var lambda_params = new ParameterExpression[] { Expression.Parameter(it.Type, null) };
+				var lambda = DynamicExpression.ParseLambda(lambda_params, null, expr.Value as string, objs); 
+				return Expression.Invoke(lambda, it);
+			}
+		}
+		
         Expression ParseIt() {
             if (it == null)
                 throw ParseError(Res.NoItInScope);
@@ -2134,6 +2170,7 @@ namespace System.Linq.Dynamic
             d.Add(keywordIt, keywordIt);
             d.Add(keywordIif, keywordIif);
             d.Add(keywordNew, keywordNew);
+			d.Add(keywordEval, keywordEval);
             foreach (Type type in predefinedTypes) d.Add(type.Name, type);
             return d;
         }
