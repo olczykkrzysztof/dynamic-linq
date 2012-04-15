@@ -20,11 +20,20 @@ namespace Dynamic
 			public string Name { get; set; }
 		}
 		
-		public class Pet
+		public interface IPet
+		{
+			string Name { get; }
+			int Age { get; }
+			string OwnerName { get; }
+		}
+		
+		public class Pet : IPet
         {
 			public string Name { get; set; }
             public int Age { get; set; }
 			public Owner Owner { get; set; }
+			
+			string IPet.OwnerName { get { return Owner.Name; } }
         }
 		
 		public class PetInfo
@@ -241,6 +250,24 @@ namespace Dynamic
 			PrintOut(query1, result1);	
 		}
 		
+		static void InterfaceExample()
+		{
+			var query1 = pets.AsQueryable().Select<IPet>("new @out (Name, Age)");
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);
+			
+			var query2 = pets.AsQueryable().Select<IPet>("new @out (Name, Age, Age + 10 As AgeNextDecade)");
+			var result2 = query2.ToArray();
+			
+			PrintOut(query2, result2);
+			
+			var query3 = pets.AsQueryable().Select<IPet>("new @out (Name, Age, Owner.Name as OwnerName)");
+			var result3 = query3.ToArray();
+			
+			PrintOut(query3, result3);
+		}
+		
 		static void Main(string[] args)
         {
 			PopulateLists();
@@ -252,6 +279,7 @@ namespace Dynamic
 			IndexerExamples();
 			DelegatePassingExample();
 			EvalExample();
+			InterfaceExample();
 
 			Console.ReadLine();
         }
