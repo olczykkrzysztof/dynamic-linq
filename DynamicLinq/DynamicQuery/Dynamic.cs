@@ -232,11 +232,11 @@ namespace System.Linq.Dynamic
         }
 
         public static Type CreateClass(params DynamicProperty[] properties) {
-            return ClassFactory.Instance.GetDynamicClass(properties);
+            return ClassFactory.Instance.GetDynamicClass(properties, new Type [] {});
         }
 
-        public static Type CreateClass(IEnumerable<DynamicProperty> properties) {
-            return ClassFactory.Instance.GetDynamicClass(properties);
+        public static Type CreateClass(IEnumerable<DynamicProperty> properties, params Type[] interfaces) {
+            return ClassFactory.Instance.GetDynamicClass(properties, interfaces);
         }
     }
 
@@ -249,14 +249,19 @@ namespace System.Linq.Dynamic
     internal class Signature : IEquatable<Signature>
     {
         public DynamicProperty[] properties;
+		public Type[] interfaces;
         public int hashCode;
 
-        public Signature(IEnumerable<DynamicProperty> properties) {
+        public Signature(IEnumerable<DynamicProperty> properties, IEnumerable<Type> interfaces) {
             this.properties = properties.ToArray();
+			this.interfaces = interfaces.ToArray();
             hashCode = 0;
             foreach (DynamicProperty p in properties) {
                 hashCode ^= p.Name.GetHashCode() ^ p.Type.GetHashCode();
             }
+			foreach (var @interface in interfaces) {
+				hashCode ^= @interface.GetHashCode();
+			}
         }
 
         public override int GetHashCode() {
@@ -269,11 +274,12 @@ namespace System.Linq.Dynamic
 
         public bool Equals(Signature other) {
             if (properties.Length != other.properties.Length) return false;
+			if (interfaces.Length != other.interfaces.Length) return false;
             for (int i = 0; i < properties.Length; i++) {
                 if (properties[i].Name != other.properties[i].Name ||
                     properties[i].Type != other.properties[i].Type) return false;
             }
-            return true;
+			return interfaces.Intersect(other.interfaces).Count() == interfaces.Length;
         }
     }
 
@@ -306,13 +312,13 @@ namespace System.Linq.Dynamic
             rwLock = new ReaderWriterLock();
         }
 
-        public Type GetDynamicClass(IEnumerable<DynamicProperty> properties) {
+        public Type GetDynamicClass(IEnumerable<DynamicProperty> properties, Type [] interfaces) {
             rwLock.AcquireReaderLock(Timeout.Infinite);
             try {
-                Signature signature = new Signature(properties);
+                Signature signature = new Signature(properties, interfaces);
                 Type type;
                 if (!classes.TryGetValue(signature, out type)) {
-                    type = CreateDynamicClass(signature.properties);
+                    type = CreateDynamicClass(signature.properties, signature.interfaces);
                     classes.Add(signature, type);
                 }
                 return type;
@@ -321,8 +327,8 @@ namespace System.Linq.Dynamic
                 rwLock.ReleaseReaderLock();
             }
         }
-
-        Type CreateDynamicClass(DynamicProperty[] properties) {
+		
+        Type CreateDynamicClass(DynamicProperty[] properties, Type [] interfaces) {
             LockCookie cookie = rwLock.UpgradeToWriterLock(Timeout.Infinite);
             try {
                 string typeName = "DynamicClass" + (classCount + 1);
@@ -332,7 +338,9 @@ namespace System.Linq.Dynamic
                 try {
                     TypeBuilder tb = this.module.DefineType(typeName, TypeAttributes.Class |
                         TypeAttributes.Public, typeof(DynamicClass));
-                    FieldInfo[] fields = GenerateProperties(tb, properties);
+					foreach (var @interface in interfaces)
+						tb.AddInterfaceImplementation(@interface);
+                    FieldInfo[] fields = GenerateProperties(tb, properties, interfaces);
                     GenerateEquals(tb, fields);
                     GenerateGetHashCode(tb, fields);
                     Type result = tb.CreateType();
@@ -350,21 +358,21 @@ namespace System.Linq.Dynamic
             }
         }
 
-        FieldInfo[] GenerateProperties(TypeBuilder tb, DynamicProperty[] properties) {
+        FieldInfo[] GenerateProperties(TypeBuilder tb, DynamicProperty[] properties, Type[] interfaces) {
             FieldInfo[] fields = new FieldBuilder[properties.Length];
             for (int i = 0; i < properties.Length; i++) {
                 DynamicProperty dp = properties[i];
                 FieldBuilder fb = tb.DefineField("_" + dp.Name, dp.Type, FieldAttributes.Private);
                 PropertyBuilder pb = tb.DefineProperty(dp.Name, PropertyAttributes.HasDefault, dp.Type, null);
                 MethodBuilder mbGet = tb.DefineMethod("get_" + dp.Name,
-                    MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+                    MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.Virtual,
                     dp.Type, Type.EmptyTypes);
                 ILGenerator genGet = mbGet.GetILGenerator();
                 genGet.Emit(OpCodes.Ldarg_0);
                 genGet.Emit(OpCodes.Ldfld, fb);
                 genGet.Emit(OpCodes.Ret);
                 MethodBuilder mbSet = tb.DefineMethod("set_" + dp.Name,
-                    MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+                    MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.Virtual,
                     null, new Type[] { dp.Type });
                 ILGenerator genSet = mbSet.GetILGenerator();
                 genSet.Emit(OpCodes.Ldarg_0);
@@ -374,6 +382,18 @@ namespace System.Linq.Dynamic
                 pb.SetGetMethod(mbGet);
                 pb.SetSetMethod(mbSet);
                 fields[i] = fb;
+				
+				foreach (var intf in interfaces)
+				{
+					var prop = intf.GetProperty(dp.Name, dp.Type);
+					if (prop == null)
+						continue;
+					if (prop.CanRead)
+						tb.DefineMethodOverride(mbGet, prop.GetGetMethod());
+					if (prop.CanWrite)
+						tb.DefineMethodOverride(mbSet, prop.GetSetMethod());
+				}
+					
             }
             return fields;
         }
@@ -1173,16 +1193,39 @@ namespace System.Linq.Dynamic
 				return null; // type not found or ambigous when attempting to infer namespace
 			}
 		}
+		
+		enum NewExpressionType { 
+			Anonymous,
+			AnonymousWithInterface,
+			StronglyTyped,
+		}
+		
+		void AddInterfaceUnmatchedProperties(Type intf, List<DynamicProperty> properties, List<Expression> expressions)
+		{
+			var unmatched_properties = from p in intf.GetProperties()
+									   where properties.Find(pp => pp.Name == p.Name && pp.Type == p.PropertyType) == null
+									   select new { 
+											dp = new DynamicProperty(p.Name, p.PropertyType), 
+											expr = Expression.Constant(p.PropertyType.IsValueType ?
+				                           		   Activator.CreateInstance(p.PropertyType)
+				                           			: null, p.PropertyType)
+									   }; 
 
+			foreach (var up in unmatched_properties.ToArray())
+			{
+				properties.Add(up.dp);
+				expressions.Add(up.expr);
+			}
+		}
+		
         Expression ParseNew() {
             NextToken();
 			
-			bool anonymous = true;
+			var new_type = NewExpressionType.Anonymous;
 			Type class_type = null;
 			
 			if (token.id == TokenId.Identifier)
 			{
-				anonymous = false;
 				StringBuilder full_type_name = new StringBuilder(token.text);
 				
 				NextToken();
@@ -1202,6 +1245,8 @@ namespace System.Linq.Dynamic
 				class_type = LoadType(full_type_name.ToString());	
 				if (class_type == null)
 					throw ParseError(Res.TypeNotFound, full_type_name.ToString());
+				
+				new_type = class_type.IsInterface ? NewExpressionType.AnonymousWithInterface : NewExpressionType.StronglyTyped;
 			}
 				
             ValidateToken(TokenId.OpenParen, Res.OpenParenExpected);
@@ -1229,7 +1274,22 @@ namespace System.Linq.Dynamic
             }
             ValidateToken(TokenId.CloseParen, Res.CloseParenOrCommaExpected);
             NextToken();
-			Type type = anonymous ? DynamicExpression.CreateClass(properties) : class_type; 
+			Type type;
+			switch (new_type)
+			{
+			case NewExpressionType.Anonymous:
+				type = DynamicExpression.CreateClass(properties);
+				break;
+			case NewExpressionType.AnonymousWithInterface:
+				AddInterfaceUnmatchedProperties(class_type, properties, expressions);
+				type = DynamicExpression.CreateClass(properties, class_type);
+				break;
+			case NewExpressionType.StronglyTyped:
+				type = class_type;
+				break;
+			default:
+				throw ParseError(Res.UnexpectedParseError);
+			}
             MemberBinding[] bindings = new MemberBinding[properties.Count];
             for (int i = 0; i < bindings.Length; i++)
                 bindings[i] = Expression.Bind(type.GetProperty(properties[i].Name), expressions[i]);
@@ -2223,5 +2283,6 @@ namespace System.Linq.Dynamic
         public const string OpenBracketExpected = "'[' expected";
         public const string CloseBracketOrCommaExpected = "']' or ',' expected";
         public const string IdentifierExpected = "Identifier expected";
+		public const string UnexpectedParseError = "Unexpected parse error";
     }
 }
