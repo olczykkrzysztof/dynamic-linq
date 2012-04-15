@@ -10,111 +10,250 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Linq.Dynamic;
 using System.Windows.Forms;
-#if SQLDEMO
-using NorthwindMapping;
-#endif
 
 namespace Dynamic
 {
     public class Program
     {
-#if SQLDEMO
-        static void Main(string[] args)
-        {
-            // For this sample to work, you need an active database server or SqlExpress.
-            // Here is a connection to the Data sample project that ships with Microsoft Visual Studio 2008.
-            string dbPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\..\..\Data\NORTHWND.MDF"));
-            string sqlServerInstance = @".\SQLEXPRESS";
-            string connString = "AttachDBFileName='" + dbPath + "';Server='" + sqlServerInstance + "';user instance=true;Integrated Security=SSPI;Connection Timeout=60";
-            
-            // Here is an alternate connect string that you can modify for your own purposes.
-            // string connString = "server=test;database=northwind;user id=test;password=test";
-
-            Northwind db = new Northwind(connString); 
-            db.Log = Console.Out;
-
-            var query =
-                db.Customers.Where("City == @0 and Orders.Count >= @1", "London", 10).
-                OrderBy("CompanyName").
-                Select("New(CompanyName as Name, Phone)");
-
-            Console.WriteLine(query);
-            Console.ReadLine();
-        }
-#else	
-		public class valAndDoubled
+		public class Owner
 		{
-			public int val { get; set; }
-			public int doubled { get; set; }
+			public string Name { get; set; }
 		}
 		
-		public class indexed 
+		public class Pet
+        {
+			public string Name { get; set; }
+            public int Age { get; set; }
+			public Owner Owner { get; set; }
+        }
+		
+		public class PetInfo
 		{
-			public object this[int index] 
-			{ 
+			public Pet Pet { get; set; }
+			public string Summary { get; set; }
+			public bool Old { get; set; } 
+		}
+		
+		public static List<Owner> owners;
+		public static List<Pet> pets;
+		public static List<IndexedPetData> pet_data;
+		
+		public static void PopulateLists()
+		{
+			owners = new List<Owner>
+					{
+						new Owner() { Name = "Suzie" },
+						new Owner() { Name = "John" },
+					};
+			
+			pets =
+                    new List<Pet>{ new Pet { Name="Barley", Age=8, Owner = owners[0] },
+                                   new Pet { Name="Boots", Age=4 , Owner = owners[1] },
+                                   new Pet { Name="Whiskers", Age=1, Owner = owners[1] },
+                                   new Pet { Name="Daisy", Age=4, Owner = owners[0] } };
+			
+			pet_data = pets.Select(pet => new IndexedPetData(pet)).ToList();
+		}
+		
+		public class IndexedPetData : Pet
+		{
+			public IndexedPetData(Pet pet)
+			{
+				Name = pet.Name;
+				Age = pet.Age;
+				Owner = pet.Owner;
+			}
+			
+			public object this[int index]
+			{
 				get 
 				{
-					if (index == 1)
-						return "foo";
-					else
-						return 10;
+					switch (index)
+					{
+					case 0:
+						return Name;
+					case 1:
+						return Age;
+					case 2:
+						return Owner.Name;
+					default:
+						return null;
+					}
 				}
 			}
 		}
 		
-		class Pet
-        {
-        	public string Name { get; set; }
-            public int Age { get; set; }
-        }
-		
-		class Multiplier
+		static void PrintOut(IQueryable queryable, Array array)
 		{
-			public int Factor {get; set;}
+			Console.WriteLine("Query: {0} \n Result: {1}", queryable, array);
+	    }
+		
+		static void FilteringExample()
+		{
+			var query1 = pets.AsQueryable().Where("Age < 8");
+			var result1 = query1.ToArray();
 			
-			public int Multiply(int x)
+			PrintOut(query1, result1);
+			
+			var query2 = pets.AsQueryable().Where("Owner.Name == @0", "Suzie");
+			var result2 = query1.ToArray();
+			
+			PrintOut(query2, result2);
+		}
+		
+		static void ProjectionExample()
+		{
+			var query1 = pets.AsQueryable().Select("new (Name as PetName, Owner.Name as OwnerName)");
+			var result1 = query1.OfType<object>().ToArray();
+			
+			PrintOut(query1, result1);
+			
+			var query1a = pets.AsQueryable().Select<object>("new (Name as PetName, Owner.Name as OwnerName)");
+			var result1a = query1a.ToArray();
+			
+			PrintOut(query1a, result1a);
+			
+			var query1b = pets.AsQueryable().Select<object>("new (Name, Owner.Name as Owner)");
+			var result1b = query1b.ToArray();
+			
+			PrintOut(query1b, result1b);
+			
+			var query2 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, Name + \" of \" + Owner.Name as Summary, Age >= 8 as Old)");
+			var result2 = query2.ToArray();
+			
+			PrintOut(query2, result2);
+			
+			var query2a = pets.AsQueryable().Select<PetInfo>("new Program.PetInfo (it as Pet, Name + \" of \" + Owner.Name as Summary, Age >= 8 as Old)");
+			var result2a = query2a.ToArray();
+			
+			PrintOut(query2a, result2a);
+			
+			var query2b = pets.AsQueryable().Select<PetInfo>("new @0 (it as Pet, Name + \" of \" + Owner.Name as Summary, Age >= 8 as Old)", typeof(PetInfo));
+			var result2b = query2b.ToArray();
+			
+			PrintOut(query2b, result2b);
+			
+			var query2c = pets.AsQueryable().Select("new Program.PetInfo (it as Pet, Name + \" of \" + Owner.Name as Summary, Age >= 8 as Old)");
+			var result2c = query2c.OfType<PetInfo>().ToArray();
+			
+			PrintOut(query2c, result2c);
+		}
+		
+		static void GroupingExample()
+		{			
+			var query1 = pets.AsQueryable().Where("Age >= 2").GroupBy<int, string>("Age", "Name");
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);
+			
+			var query2 = pets.AsQueryable().GroupBy<int, Pet>("Age");
+			var result2 = query2.ToArray();
+			
+			PrintOut(query2, result2);
+		}
+		
+		static void NestedNewExample()
+		{
+			var query1 = pets.AsQueryable().Select<Pet>("new @out(Name, Age, new @0(@1 as Name) as Owner)", typeof(Owner), "New Owner");
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);
+		}
+		
+		static void IndexerExamples()
+		{
+			var query1 = pet_data.AsQueryable().Where("Int32(it[1]) < 5");
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);
+			
+			var query1a = pet_data.AsQueryable().Where("Int32([1]) < 5");
+			var result1a = query1a.ToArray();
+			
+			PrintOut(query1a, result1a);
+			
+			var query2 = pet_data.AsQueryable().Where("[2] == @0", "Suzie");
+			var result2 = query2.ToArray();
+			
+			PrintOut(query2, result2);
+			
+			var query3 = pet_data.AsQueryable().Select<string>("String([0])");
+			var result3 = query3.ToArray();
+			
+			PrintOut(query3, result3);		
+			
+			var query4 = pet_data.AsQueryable().Select<object>("new ([0] as name, Int32([1]) as age)");
+			var result4 = query4.ToArray();
+			
+			PrintOut(query4, result4);	
+		}
+		
+		static string GenerateSummary(Pet pet)
+		{
+			return pet.Name + " of " + pet.Owner.Name;
+		}
+		
+		static void DelegatePassingExample()
+		{	
+			Func<Pet, string> func1 = GenerateSummary;
+			
+			var query1 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, @0(it) as Summary, Age >= 8 as Old)", func1);
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);
+			
+			var query1a = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, @0(it) as Summary, Age >= 8 as Old)", new Func<Pet, string>(GenerateSummary));
+			var result1a = query1a.ToArray();
+			
+			PrintOut(query1a, result1a);
+			
+			
+			Func<Pet, string> func2 = pet => pet.Name + " of " + pet.Owner.Name;
+			
+			var query2 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, @0(it) as Summary, Age >= 8 as Old)", func2);
+			var result2 = query2.ToArray();
+			
+			PrintOut(query2, result2);
+			
+			Expression<Func<Pet, string>> func3 = pet => pet.Name + " of " + pet.Owner.Name;
+			
+			var query3 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, @0(it) as Summary, Age >= 8 as Old)", func3);
+			var result3 = query3.ToArray();
+			
+			PrintOut(query3, result3);
+			
+			Func<Pet, string> func4 = delegate (Pet pet)
 			{
-				return x * Factor;
-			}
+				return pet.Name + " of " + pet.Owner.Name;
+			};
+			
+			var query4 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, @0(it) as Summary, Age >= 8 as Old)", func4);
+			var result4 = query4.ToArray();
+			
+			PrintOut(query2, result2);
+		}
+		
+		static void EvalExample()
+		{
+			var query1 = pets.AsQueryable().Select<PetInfo>("new @out (it as Pet, eval @0 as Summary, Age >= 8 as Old)", "Name + \" of \" + Owner.Name");
+			var result1 = query1.ToArray();
+			
+			PrintOut(query1, result1);	
 		}
 		
 		static void Main(string[] args)
         {
-			var query = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable().Select(t => new { val = t })
-				.Where("val >= 7").Select<object>("new (val, new Dynamic.Program.valAndDoubled(val, (val * 2) as doubled) as cool)");
+			PopulateLists();
 			
-			var arr = query.ToArray();
-			
-		    Expression< Func<int> > ten = () => 10;
-			
-			var doubler = new Multiplier { Factor = 2 }; 
-			Func<int, int> doubler_func = doubler.Multiply;
-			
-			var q2 = (new int [] { 10, 20, 40, 5, 3, 5, 7, 2, 9 }).AsQueryable()
-				.Select<valAndDoubled>("new @out (eval @2 as val, @1(it * @0) + eval \"1+3\" as doubled)", 
-				                       ten, doubler_func, "it");
-			
-			var arr2 = q2.ToArray();
-			
-			var q3 = (new indexed[] { new indexed (), new indexed () }).AsQueryable().Where("Int32([0]) == 10");
-			var arr3 = q3.ToArray();
-			
-			List<Pet> pets =
-                    new List<Pet>{ new Pet { Name="Barley", Age=8 },
-                                   new Pet { Name="Boots", Age=4 },
-                                   new Pet { Name="Whiskers", Age=1 },
-                                   new Pet { Name="Daisy", Age=4 } };
-			
-			var pet_query = pets.AsQueryable().Where("Age >= 2").GroupBy<int, string>("Age", "Name");
-			var pet_arr = pet_query.ToArray();
-			
-			var pet_query2 = pets.AsQueryable().GroupBy<int, Pet>("Age");
-			var pet_arr2 = pet_query2.ToArray();
-			
-            Console.WriteLine(query);
-			Console.WriteLine(q2);
-            Console.ReadLine();
+			FilteringExample();
+			ProjectionExample();
+			GroupingExample();
+			NestedNewExample();
+			IndexerExamples();
+			DelegatePassingExample();
+			EvalExample();
+
+			Console.ReadLine();
         }
-#endif
     }
 }
